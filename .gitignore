@@ -1,0 +1,22 @@
+# Python
+__pycache__/
+*.pyc
+.venv/
+.pytest_cache/
+*.egg-info/
+
+# Node / Next.js
+dashboard/node_modules/
+dashboard/.next/
+dashboard/out/
+dashboard/tsconfig.tsbuildinfo
+npm-debug.log*
+
+# Recorded runs (generated at runtime; keep the directory, not the contents)
+recordings/runs/*.json
+!recordings/.gitkeep
+
+# OS / editor
+.DS_Store
+.idea/
+.vscode/
