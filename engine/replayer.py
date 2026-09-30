@@ -100,6 +100,46 @@ class Replayer:
         self.on_event = on_event
         self._mouse: Optional["mouse.Controller"] = None
         self._keyboard: Optional["keyboard.Controller"] = None
+        self._paused = threading.Event()
+        self._stop_requested = threading.Event()
+        self._play_start: Optional[float] = None
+        self._paused_total = 0.0
+        self._pause_started: Optional[float] = None
+
+    def pause(self) -> None:
+        """Freeze playback (e.g. so a human can take over manually).
+
+        Timing is preserved: the time spent paused is excluded from the
+        elapsed-time accounting, so resuming continues exactly where the
+        recording's original timeline left off rather than firing every
+        overdue event at once.
+        """
+        self._paused.set()
+
+    def resume(self) -> None:
+        self._paused.clear()
+
+    def is_paused(self) -> bool:
+        return self._paused.is_set()
+
+    def request_stop(self) -> None:
+        """Ask a running play() loop to abort at the next opportunity
+        (e.g. from a signal handler in another thread/process control path)."""
+        self._stop_requested.set()
+
+    def elapsed_ms(self) -> float:
+        """Wall-clock playback time so far, excluding any time spent paused.
+
+        Safe to call from another thread while play() is running (e.g. a
+        status-reporting thread) -- stays accurate and continuous across
+        pause/resume rather than jumping when a pause ends.
+        """
+        if self._play_start is None:
+            return 0.0
+        paused_total = self._paused_total
+        if self._pause_started is not None:
+            paused_total += time.perf_counter() - self._pause_started
+        return (time.perf_counter() - self._play_start - paused_total) * 1000.0
 
     def _ensure_controllers(self) -> None:
         if mouse is None or keyboard is None:
@@ -135,29 +175,58 @@ class Replayer:
 
     def play(self, recording: Recording) -> ReplayResult:
         self._ensure_controllers()
+        self._paused.clear()
+        self._stop_requested.clear()
         watcher = AbortWatcher(self.abort_key)
         watcher.start()
 
+        def should_stop() -> bool:
+            return watcher.triggered.is_set() or self._stop_requested.is_set()
+
         start = time.perf_counter()
+        self._play_start = start
+        self._paused_total = 0.0
+        self._pause_started = None
+
+        def sync_pause_accounting(currently_paused: bool) -> None:
+            if currently_paused and self._pause_started is None:
+                self._pause_started = time.perf_counter()
+            elif not currently_paused and self._pause_started is not None:
+                self._paused_total += time.perf_counter() - self._pause_started
+                self._pause_started = None
+
         played = 0
         aborted = False
         try:
             for event in recording.events:
-                if watcher.triggered.is_set():
+                # Hold here while paused (e.g. a human took over manually),
+                # without letting the recording's timeline advance.
+                while self._paused.is_set() and not should_stop():
+                    sync_pause_accounting(True)
+                    time.sleep(0.05)
+                sync_pause_accounting(False)
+
+                if should_stop():
                     aborted = True
                     break
 
                 target_offset_s = (event.t / 1000.0) / self.speed
-                now_offset_s = time.perf_counter() - start
-                remaining = target_offset_s - now_offset_s
-                if remaining > 0:
-                    # Sleep in short slices so the abort hotkey stays responsive.
-                    slice_s = 0.02
-                    while remaining > 0 and not watcher.triggered.is_set():
-                        time.sleep(min(slice_s, remaining))
-                        remaining -= slice_s
-                if watcher.triggered.is_set():
-                    aborted = True
+                while True:
+                    now_offset_s = (time.perf_counter() - start) - self._paused_total
+                    remaining = target_offset_s - now_offset_s
+                    if remaining <= 0:
+                        break
+                    if should_stop():
+                        aborted = True
+                        break
+                    if self._paused.is_set():
+                        sync_pause_accounting(True)
+                        time.sleep(0.05)
+                        continue
+                    sync_pause_accounting(False)
+                    # Sleep in short slices so pause/abort stay responsive.
+                    time.sleep(min(0.02, remaining))
+                if aborted:
                     break
 
                 self._apply(event)
@@ -165,11 +234,10 @@ class Replayer:
         finally:
             watcher.stop()
 
-        elapsed_ms = (time.perf_counter() - start) * 1000.0
+        elapsed_ms = self.elapsed_ms()
         if aborted:
             raise ReplayAborted(
-                f"Replay aborted by hotkey '{self.abort_key}' after "
-                f"{played}/{len(recording.events)} events"
+                f"Replay stopped after {played}/{len(recording.events)} events"
             )
 
         return ReplayResult(

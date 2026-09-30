@@ -15,6 +15,7 @@ npm-debug.log*
 # Recorded runs (generated at runtime; keep the directory, not the contents)
 recordings/runs/*.json
 !recordings/.gitkeep
+recordings/.recording-state.json
 
 # OS / editor
 .DS_Store

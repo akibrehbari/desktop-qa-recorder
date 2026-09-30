@@ -5,6 +5,7 @@ const STYLES: Record<RunStatus, string> = {
   failed: "bg-red-500/15 text-red-400 ring-red-500/30",
   aborted: "bg-amber-500/15 text-amber-400 ring-amber-500/30",
   running: "bg-sky-500/15 text-sky-400 ring-sky-500/30 animate-pulse",
+  paused: "bg-violet-500/15 text-violet-400 ring-violet-500/30",
 };
 
 export default function StatusBadge({ status }: { status: RunStatus }) {

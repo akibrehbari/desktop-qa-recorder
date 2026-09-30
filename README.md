@@ -92,23 +92,40 @@ cd dashboard
 npm run dev
 ```
 
-Open [http://localhost:3000](http://localhost:3000). The dashboard will:
+Open [http://localhost:3000](http://localhost:3000). Everything below works
+by clicking — no terminal required:
 
-- List every recording in `recordings/`
-- Let you upload a new recording JSON file
-- Trigger a replay at a chosen speed (spawns `engine/cli.py replay` as a
-  subprocess and tracks its run record)
-- Show run history with status, duration, and an expandable event timeline
+- **Record**: click **Start Recording**, do the workflow, click **Stop
+  Recording**. Runs `engine/cli.py record` as a background process; Stop
+  sends it a graceful shutdown signal and the new recording appears in the
+  list automatically.
+- **Delete** a recording with the ✕ button on its card.
+- **Upload** a recording JSON file exported from elsewhere.
+- **Run** a recording at a chosen speed multiplier — spawns
+  `engine/cli.py replay` as a subprocess and tracks its run record.
+- **Pause / Resume / Stop** any in-progress run directly from its row in
+  Test Runs. Pause freezes the recording's timeline (the paused duration is
+  excluded from timing, so resuming continues exactly where it left off
+  rather than firing every overdue event at once) — handy for taking over
+  manually partway through a run and handing control back to the replay
+  afterward. Pause/Resume use POSIX signals (`SIGUSR1`/`SIGUSR2`) and are
+  not available on Windows; Stop (`SIGTERM`) works everywhere.
+- Expand any run row to see its full event timeline.
 
 ### Dashboard API routes
 
-| Route                  | Method | Purpose                                   |
-| ----------------------- | ------ | ------------------------------------------ |
-| `/api/recordings`       | GET    | List available recordings                  |
-| `/api/upload`           | POST   | Save an uploaded recording JSON            |
-| `/api/trigger`          | POST   | Start a replay run (`{ recordingFile, speed }`) |
-| `/api/runs`             | GET    | List run history                           |
-| `/api/runs/:id`         | GET    | Get one run's status + its recording's events |
+| Route                        | Method | Purpose                                         |
+| ----------------------------- | ------ | ------------------------------------------------ |
+| `/api/recordings`             | GET    | List available recordings                        |
+| `/api/recordings/:file`       | DELETE | Delete a recording                                |
+| `/api/upload`                 | POST   | Save an uploaded recording JSON                   |
+| `/api/record/start`           | POST   | Start recording (`{ name }`)                      |
+| `/api/record/stop`            | POST   | Stop the in-progress recording                    |
+| `/api/record/status`          | GET    | Current recording state, if any                   |
+| `/api/trigger`                | POST   | Start a replay run (`{ recordingFile, speed }`)   |
+| `/api/runs`                   | GET    | List run history                                  |
+| `/api/runs/:id`               | GET    | Get one run's status + its recording's events     |
+| `/api/runs/:id/control`       | POST   | Pause/resume/stop a run (`{ action }`)            |
 
 ## Running tests
 

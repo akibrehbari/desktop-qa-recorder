@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useState } from "react";
 
+import RecordPanel from "@/components/RecordPanel";
 import RunList from "@/components/RunList";
 import UploadButton from "@/components/UploadButton";
 import type { RecordingSummary, RunRecord } from "@/lib/types";
@@ -13,6 +14,7 @@ export default function DashboardPage() {
   const [runs, setRuns] = useState<RunRecord[]>([]);
   const [speed, setSpeed] = useState(1);
   const [triggering, setTriggering] = useState<string | null>(null);
+  const [deleting, setDeleting] = useState<string | null>(null);
   const [toast, setToast] = useState<string | null>(null);
 
   const refresh = useCallback(async () => {
@@ -52,6 +54,26 @@ export default function DashboardPage() {
     }
   }
 
+  async function remove(file: string, name: string) {
+    if (!window.confirm(`Delete recording "${name}"? This can't be undone.`)) {
+      return;
+    }
+    setDeleting(file);
+    setToast(null);
+    try {
+      const res = await fetch(`/api/recordings/${encodeURIComponent(file)}`, {
+        method: "DELETE",
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error ?? "Failed to delete recording");
+      await refresh();
+    } catch (err) {
+      setToast(err instanceof Error ? err.message : "Failed to delete recording");
+    } finally {
+      setDeleting(null);
+    }
+  }
+
   return (
     <main className="mx-auto max-w-6xl px-6 py-10">
       <header className="mb-8 flex items-center justify-between">
@@ -73,7 +95,9 @@ export default function DashboardPage() {
       )}
 
       <div className="grid grid-cols-1 gap-8 lg:grid-cols-[320px_1fr]">
-        <section>
+        <section className="space-y-6">
+          <RecordPanel onFinished={refresh} />
+
           <div className="mb-3 flex items-center justify-between">
             <h2 className="text-sm font-semibold uppercase tracking-wide text-slate-400">
               Recordings
@@ -94,8 +118,8 @@ export default function DashboardPage() {
           <div className="space-y-3">
             {recordings.length === 0 && (
               <p className="rounded-md border border-dashed border-border p-4 text-sm text-slate-400">
-                No recordings found in <code>recordings/</code>. Record one
-                with the CLI or upload a JSON file.
+                No recordings yet. Click <b>Start Recording</b> above, or
+                upload a JSON file.
               </p>
             )}
             {recordings.map((rec) => (
@@ -103,7 +127,18 @@ export default function DashboardPage() {
                 key={rec.file}
                 className="rounded-lg bg-panel p-4 ring-1 ring-border"
               >
-                <p className="font-medium text-slate-200">{rec.name}</p>
+                <div className="flex items-start justify-between gap-2">
+                  <p className="font-medium text-slate-200">{rec.name}</p>
+                  <button
+                    onClick={() => remove(rec.file, rec.name)}
+                    disabled={deleting === rec.file}
+                    title="Delete recording"
+                    aria-label={`Delete recording ${rec.name}`}
+                    className="shrink-0 rounded-md px-1.5 py-0.5 text-xs text-slate-500 transition hover:bg-red-500/10 hover:text-red-400 disabled:opacity-50"
+                  >
+                    {deleting === rec.file ? "…" : "✕"}
+                  </button>
+                </div>
                 <p className="mt-1 text-xs text-slate-500">
                   {rec.events_count} events · {(rec.duration_ms / 1000).toFixed(2)}s ·{" "}
                   {rec.platform}
@@ -124,7 +159,7 @@ export default function DashboardPage() {
           <h2 className="mb-3 text-sm font-semibold uppercase tracking-wide text-slate-400">
             Test Runs
           </h2>
-          <RunList runs={runs} />
+          <RunList runs={runs} onChanged={refresh} />
         </section>
       </div>
     </main>

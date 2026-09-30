@@ -109,7 +109,7 @@ class Recorder:
     def _on_press(self, key) -> Optional[bool]:
         name = _key_name(key)
         if name.lower() == self.stop_key:
-            self.stop()
+            self.request_stop()
             return False
         t = self._elapsed_ms()
         self._record(InputEvent(type="key_down", t=t, key=name))
@@ -135,9 +135,21 @@ class Recorder:
         self._mouse_listener.start()
         self._keyboard_listener.start()
 
-    def wait(self) -> None:
-        """Block until the stop hotkey is pressed."""
-        self._stopped.wait()
+    def request_stop(self) -> None:
+        """Signal that recording should end (from the stop hotkey or an
+        external controller, e.g. a SIGTERM handler). Does not itself tear
+        down listeners or finalize the Recording -- call stop() for that."""
+        self._stopped.set()
+
+    def wait(self, poll_interval: float = 0.2) -> None:
+        """Block until request_stop() has been called.
+
+        Polls in short slices (rather than a single indefinite Event.wait())
+        so that a signal handler calling request_stop() from the same
+        process is guaranteed to be noticed promptly.
+        """
+        while not self._stopped.wait(poll_interval):
+            pass
 
     def stop(self) -> Recording:
         if self._mouse_listener is not None:

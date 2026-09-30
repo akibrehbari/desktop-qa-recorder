@@ -10,7 +10,10 @@ from __future__ import annotations
 
 import argparse
 import json
+import os
+import signal
 import sys
+import threading
 import time
 import uuid
 from datetime import datetime, timezone
@@ -31,6 +34,12 @@ def _cmd_record(args: argparse.Namespace) -> int:
         move_throttle_ms=args.move_throttle_ms,
         on_event=lambda e: print(f"  captured: {e.type} @ {e.t:.1f}ms"),
     )
+    def _handle_external_stop(signum, frame):  # noqa: ARG001
+        recorder.request_stop()
+
+    signal.signal(signal.SIGTERM, _handle_external_stop)
+    signal.signal(signal.SIGINT, _handle_external_stop)
+
     recorder.start()
     recorder.wait()
     recording = recorder.stop()
@@ -53,45 +62,81 @@ def _cmd_replay(args: argparse.Namespace) -> int:
         f"at {args.speed}x speed. Press '{args.abort_key}' to abort."
     )
 
-    player = Replayer(
-        speed=args.speed,
-        abort_key=args.abort_key,
-        on_event=lambda e: print(f"  playing: {e.type} @ {e.t:.1f}ms"),
-    )
+    progress_lock = threading.Lock()
+    progress = {"played": 0}
+
+    def _on_event(e):
+        with progress_lock:
+            progress["played"] += 1
+        print(f"  playing: {e.type} @ {e.t:.1f}ms")
+
+    player = Replayer(speed=args.speed, abort_key=args.abort_key, on_event=_on_event)
+
+    # Let an external controller (e.g. the dashboard, via this process's pid)
+    # pause/resume/stop playback without needing a focused terminal window.
+    # SIGUSR1/SIGUSR2 aren't available on Windows, so pause/resume is a
+    # POSIX-only convenience there; Stop (SIGTERM/SIGINT) still works everywhere.
+    signal.signal(signal.SIGTERM, lambda signum, frame: player.request_stop())
+    signal.signal(signal.SIGINT, lambda signum, frame: player.request_stop())
+    if hasattr(signal, "SIGUSR1"):
+        signal.signal(signal.SIGUSR1, lambda signum, frame: player.pause())
+    if hasattr(signal, "SIGUSR2"):
+        signal.signal(signal.SIGUSR2, lambda signum, frame: player.resume())
+
+    def _write_status(status: str, error: str | None = None, finished: bool = False) -> dict:
+        with progress_lock:
+            played = progress["played"]
+        record = {
+            "id": run_id,
+            "pid": os.getpid(),
+            "recording_name": recording.name,
+            "source_file": str(Path(args.input).resolve()),
+            "status": status,
+            "speed": args.speed,
+            "started_at": started_at,
+            "finished_at": datetime.now(timezone.utc).isoformat() if finished else None,
+            "duration_ms": player.elapsed_ms(),
+            "events_total": len(recording.events),
+            "events_played": played,
+            "error": error,
+        }
+        if args.run_output:
+            Path(args.run_output).parent.mkdir(parents=True, exist_ok=True)
+            tmp_path = f"{args.run_output}.tmp"
+            with open(tmp_path, "w", encoding="utf-8") as fh:
+                json.dump(record, fh, indent=2)
+            os.replace(tmp_path, args.run_output)
+        return record
+
+    stop_reporting = threading.Event()
+
+    def _report_pause_transitions() -> None:
+        last_paused = None
+        while not stop_reporting.is_set():
+            paused = player.is_paused()
+            if paused != last_paused:
+                _write_status("paused" if paused else "running")
+                last_paused = paused
+            stop_reporting.wait(0.25)
+
+    reporter = threading.Thread(target=_report_pause_transitions, daemon=True)
+    reporter.start()
 
     status = "passed"
     error_message = None
-    result = None
-    t0 = time.perf_counter()
     try:
-        result = player.play(recording)
+        player.play(recording)
     except ReplayAborted as exc:
         status = "aborted"
         error_message = str(exc)
     except Exception as exc:  # noqa: BLE001 - surfaced in the run record
         status = "failed"
         error_message = str(exc)
-    elapsed_ms = (time.perf_counter() - t0) * 1000.0
+    finally:
+        stop_reporting.set()
+        reporter.join(timeout=1.0)
 
-    run_record = {
-        "id": run_id,
-        "recording_name": recording.name,
-        "source_file": str(Path(args.input).resolve()),
-        "status": status,
-        "speed": args.speed,
-        "started_at": started_at,
-        "finished_at": datetime.now(timezone.utc).isoformat(),
-        "duration_ms": elapsed_ms,
-        "events_total": len(recording.events),
-        "events_played": result.events_played if result else 0,
-        "error": error_message,
-    }
-
-    if args.run_output:
-        Path(args.run_output).parent.mkdir(parents=True, exist_ok=True)
-        with open(args.run_output, "w", encoding="utf-8") as fh:
-            json.dump(run_record, fh, indent=2)
-
+    run_record = _write_status(status, error=error_message, finished=True)
     print(json.dumps(run_record, indent=2))
     return 0 if status == "passed" else 1
 

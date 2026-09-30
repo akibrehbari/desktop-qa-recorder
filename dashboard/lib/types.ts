@@ -1,7 +1,8 @@
-export type RunStatus = "running" | "passed" | "failed" | "aborted";
+export type RunStatus = "running" | "paused" | "passed" | "failed" | "aborted";
 
 export interface RunRecord {
   id: string;
+  pid?: number;
   recording_name: string;
   source_file: string;
   status: RunStatus;
@@ -38,4 +39,11 @@ export interface RecordingSummary {
 
 export interface RecordingDetail extends RecordingSummary {
   events: InputEvent[];
+}
+
+export interface RecordingState {
+  pid: number;
+  name: string;
+  file: string;
+  started_at: string;
 }

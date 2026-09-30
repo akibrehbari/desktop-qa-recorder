@@ -123,6 +123,52 @@ def test_speed_multiplier_scales_wait_time():
     assert result.elapsed_ms < 100
 
 
+def test_pause_excludes_paused_duration_from_elapsed_time():
+    events = [
+        InputEvent(type="move", t=0.0, x=0, y=0),
+        InputEvent(type="move", t=50.0, x=1, y=1),
+    ]
+    recording = make_recording(events)
+    player = Replayer(speed=100.0)  # 50ms of recorded time -> ~0.5ms unpaused
+
+    def pause_briefly(event):
+        if event.t == 0.0:
+            player.pause()
+            threading.Timer(0.15, player.resume).start()
+
+    player.on_event = pause_briefly
+    result = player.play(recording)
+
+    assert result.completed is True
+    # The ~150ms pause should not be counted as replay time.
+    assert result.elapsed_ms < 100
+
+
+def test_stop_requested_aborts_play():
+    events = [
+        InputEvent(type="move", t=0.0, x=0, y=0),
+        InputEvent(type="move", t=10_000.0, x=1, y=1),
+    ]
+    recording = make_recording(events)
+    player = Replayer(speed=1.0)
+
+    def stop_after_first(event):
+        player.request_stop()
+
+    player.on_event = stop_after_first
+    with pytest.raises(ReplayAborted):
+        player.play(recording)
+
+
+def test_is_paused_reflects_pause_and_resume():
+    player = Replayer()
+    assert player.is_paused() is False
+    player.pause()
+    assert player.is_paused() is True
+    player.resume()
+    assert player.is_paused() is False
+
+
 def test_abort_watcher_sets_triggered_flag_on_matching_key():
     watcher = AbortWatcher(abort_key="esc")
 

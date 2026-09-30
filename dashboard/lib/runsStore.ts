@@ -4,11 +4,17 @@ import fs from "fs/promises";
 import { existsSync } from "fs";
 import path from "path";
 
-import type { RecordingDetail, RecordingSummary, RunRecord } from "./types";
+import type {
+  RecordingDetail,
+  RecordingState,
+  RecordingSummary,
+  RunRecord,
+} from "./types";
 
 const REPO_ROOT = path.join(process.cwd(), "..");
 const RECORDINGS_DIR = path.join(REPO_ROOT, "recordings");
 const RUNS_DIR = path.join(RECORDINGS_DIR, "runs");
+const RECORDING_STATE_FILE = path.join(RECORDINGS_DIR, ".recording-state.json");
 
 function pythonBin(): string {
   const venvPython = path.join(REPO_ROOT, ".venv", "bin", "python");
@@ -82,6 +88,19 @@ export async function saveRecording(name: string, jsonText: string): Promise<str
   return fileName;
 }
 
+export async function deleteRecording(file: string): Promise<void> {
+  const safeName = path.basename(file);
+  const fullPath = path.join(RECORDINGS_DIR, safeName);
+  try {
+    await fs.unlink(fullPath);
+  } catch (err) {
+    if ((err as NodeJS.ErrnoException).code === "ENOENT") {
+      throw new Error(`Recording not found: ${safeName}`);
+    }
+    throw err;
+  }
+}
+
 export async function listRuns(): Promise<RunRecord[]> {
   await ensureDirs();
   const entries = await fs.readdir(RUNS_DIR, { withFileTypes: true });
@@ -128,21 +147,6 @@ export async function triggerReplay(
   const runOutput = path.join(RUNS_DIR, `${runId}.json`);
   const startedAt = new Date().toISOString();
 
-  const pending: RunRecord = {
-    id: runId,
-    recording_name: safeFile,
-    source_file: recordingPath,
-    status: "running",
-    speed,
-    started_at: startedAt,
-    finished_at: null,
-    duration_ms: 0,
-    events_total: 0,
-    events_played: 0,
-    error: null,
-  };
-  await fs.writeFile(runOutput, JSON.stringify(pending, null, 2));
-
   const child = spawn(
     pythonBin(),
     [
@@ -166,5 +170,141 @@ export async function triggerReplay(
   );
   child.unref();
 
+  const pending: RunRecord = {
+    id: runId,
+    pid: child.pid,
+    recording_name: safeFile,
+    source_file: recordingPath,
+    status: "running",
+    speed,
+    started_at: startedAt,
+    finished_at: null,
+    duration_ms: 0,
+    events_total: 0,
+    events_played: 0,
+    error: null,
+  };
+  await fs.writeFile(runOutput, JSON.stringify(pending, null, 2));
+
   return pending;
+}
+
+function isProcessAlive(pid: number): boolean {
+  try {
+    process.kill(pid, 0);
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+export type RunControlAction = "pause" | "resume" | "stop";
+
+export async function controlRun(
+  runId: string,
+  action: RunControlAction
+): Promise<RunRecord> {
+  const run = await getRun(runId);
+  if (!run) {
+    throw new Error("Run not found");
+  }
+  if (!run.pid) {
+    throw new Error("This run has no attached process to control");
+  }
+  if (!isProcessAlive(run.pid)) {
+    throw new Error("That run's process has already finished");
+  }
+  if (action !== "stop" && process.platform === "win32") {
+    throw new Error("Pause/Resume isn't supported on Windows — use Stop instead");
+  }
+
+  const signal =
+    action === "stop" ? "SIGTERM" : action === "pause" ? "SIGUSR1" : "SIGUSR2";
+  process.kill(run.pid, signal);
+
+  // Give the replay process a brief moment to write its updated status.
+  await new Promise((resolve) => setTimeout(resolve, 300));
+  const updated = await getRun(runId);
+  return updated ?? run;
+}
+
+async function readRecordingState(): Promise<RecordingState | null> {
+  try {
+    const raw = await fs.readFile(RECORDING_STATE_FILE, "utf-8");
+    return JSON.parse(raw) as RecordingState;
+  } catch {
+    return null;
+  }
+}
+
+export async function getRecordingStatus(): Promise<RecordingState | null> {
+  const state = await readRecordingState();
+  if (!state) return null;
+  if (!isProcessAlive(state.pid)) {
+    // The recorder process died/crashed without us clearing this file.
+    await fs.rm(RECORDING_STATE_FILE, { force: true });
+    return null;
+  }
+  return state;
+}
+
+export async function startRecording(name: string): Promise<RecordingState> {
+  await ensureDirs();
+  const existing = await getRecordingStatus();
+  if (existing) {
+    throw new Error(`A recording ("${existing.name}") is already in progress`);
+  }
+
+  const safeName =
+    name.replace(/[^a-zA-Z0-9-_]/g, "_").replace(/^_+|_+$/g, "") ||
+    `recording-${Date.now()}`;
+  const fileName = `${safeName}.json`;
+  const outputPath = path.join(RECORDINGS_DIR, fileName);
+
+  const child = spawn(
+    pythonBin(),
+    ["-m", "engine.cli", "record", outputPath, "--name", safeName],
+    {
+      cwd: REPO_ROOT,
+      detached: true,
+      stdio: "ignore",
+      env: { ...process.env, PYTHONPATH: REPO_ROOT },
+    }
+  );
+  child.unref();
+
+  if (!child.pid) {
+    throw new Error("Failed to start the recorder process");
+  }
+
+  const state: RecordingState = {
+    pid: child.pid,
+    name: safeName,
+    file: fileName,
+    started_at: new Date().toISOString(),
+  };
+  await fs.writeFile(RECORDING_STATE_FILE, JSON.stringify(state, null, 2));
+  return state;
+}
+
+export async function stopRecording(): Promise<{ file: string; name: string }> {
+  const state = await readRecordingState();
+  if (!state) {
+    throw new Error("No recording is currently in progress");
+  }
+
+  try {
+    process.kill(state.pid, "SIGTERM");
+  } catch {
+    // Process may have already exited on its own (e.g. the F9 stop hotkey).
+  }
+
+  // Give the recorder a brief window to flush the JSON file and exit before
+  // we tell the UI it's safe to refresh the recordings list.
+  for (let i = 0; i < 15 && isProcessAlive(state.pid); i++) {
+    await new Promise((resolve) => setTimeout(resolve, 200));
+  }
+
+  await fs.rm(RECORDING_STATE_FILE, { force: true });
+  return { file: state.file, name: state.name };
 }

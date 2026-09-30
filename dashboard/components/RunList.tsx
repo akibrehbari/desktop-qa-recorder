@@ -20,10 +20,18 @@ function formatTime(iso: string): string {
   }
 }
 
-export default function RunList({ runs }: { runs: RunRecord[] }) {
+export default function RunList({
+  runs,
+  onChanged,
+}: {
+  runs: RunRecord[];
+  onChanged?: () => void;
+}) {
   const [expandedId, setExpandedId] = useState<string | null>(null);
   const [events, setEvents] = useState<InputEvent[] | null>(null);
   const [loadingId, setLoadingId] = useState<string | null>(null);
+  const [controllingId, setControllingId] = useState<string | null>(null);
+  const [controlError, setControlError] = useState<string | null>(null);
 
   async function toggleExpand(run: RunRecord) {
     if (expandedId === run.id) {
@@ -43,6 +51,30 @@ export default function RunList({ runs }: { runs: RunRecord[] }) {
     }
   }
 
+  async function control(
+    e: React.MouseEvent,
+    run: RunRecord,
+    action: "pause" | "resume" | "stop"
+  ) {
+    e.stopPropagation();
+    setControllingId(run.id);
+    setControlError(null);
+    try {
+      const res = await fetch(`/api/runs/${run.id}/control`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ action }),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error ?? `Failed to ${action} run`);
+      onChanged?.();
+    } catch (err) {
+      setControlError(err instanceof Error ? err.message : `Failed to ${action} run`);
+    } finally {
+      setControllingId(null);
+    }
+  }
+
   if (runs.length === 0) {
     return (
       <p className="rounded-md border border-dashed border-border p-6 text-center text-sm text-slate-400">
@@ -53,6 +85,11 @@ export default function RunList({ runs }: { runs: RunRecord[] }) {
 
   return (
     <div className="overflow-hidden rounded-lg ring-1 ring-border">
+      {controlError && (
+        <p className="border-b border-border bg-red-500/10 px-4 py-2 text-xs text-red-300">
+          {controlError}
+        </p>
+      )}
       <table className="w-full text-left text-sm">
         <thead className="bg-panel text-xs uppercase tracking-wide text-slate-400">
           <tr>
@@ -62,6 +99,7 @@ export default function RunList({ runs }: { runs: RunRecord[] }) {
             <th className="px-4 py-3 font-medium">Events</th>
             <th className="px-4 py-3 font-medium">Duration</th>
             <th className="px-4 py-3 font-medium">Started</th>
+            <th className="px-4 py-3 font-medium">Actions</th>
           </tr>
         </thead>
         <tbody>
@@ -87,10 +125,41 @@ export default function RunList({ runs }: { runs: RunRecord[] }) {
                 <td className="px-4 py-3 text-slate-400">
                   {formatTime(run.started_at)}
                 </td>
+                <td className="px-4 py-3">
+                  {(run.status === "running" || run.status === "paused") && (
+                    <div className="flex gap-1.5">
+                      {run.status === "running" && (
+                        <button
+                          onClick={(e) => control(e, run, "pause")}
+                          disabled={controllingId === run.id}
+                          className="rounded-md bg-violet-500/15 px-2 py-1 text-xs font-medium text-violet-300 ring-1 ring-violet-500/30 transition hover:bg-violet-500/25 disabled:opacity-50"
+                        >
+                          Pause
+                        </button>
+                      )}
+                      {run.status === "paused" && (
+                        <button
+                          onClick={(e) => control(e, run, "resume")}
+                          disabled={controllingId === run.id}
+                          className="rounded-md bg-sky-500/15 px-2 py-1 text-xs font-medium text-sky-300 ring-1 ring-sky-500/30 transition hover:bg-sky-500/25 disabled:opacity-50"
+                        >
+                          Resume
+                        </button>
+                      )}
+                      <button
+                        onClick={(e) => control(e, run, "stop")}
+                        disabled={controllingId === run.id}
+                        className="rounded-md bg-red-500/15 px-2 py-1 text-xs font-medium text-red-300 ring-1 ring-red-500/30 transition hover:bg-red-500/25 disabled:opacity-50"
+                      >
+                        Stop
+                      </button>
+                    </div>
+                  )}
+                </td>
               </tr>
               {expandedId === run.id && (
                 <tr className="border-t border-border bg-panel/60">
-                  <td colSpan={6} className="px-4 py-4">
+                  <td colSpan={7} className="px-4 py-4">
                     {run.error && (
                       <p className="mb-3 rounded bg-red-500/10 px-3 py-2 text-xs text-red-300">
                         {run.error}
