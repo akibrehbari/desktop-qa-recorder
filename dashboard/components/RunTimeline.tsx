@@ -1,8 +1,8 @@
 import type { InputEvent } from "@/lib/types";
 
 const TYPE_COLOR: Record<InputEvent["type"], string> = {
-  move: "bg-slate-500",
-  click: "bg-accent",
+  move: "bg-muted-foreground",
+  click: "bg-primary",
   scroll: "bg-violet-400",
   key_down: "bg-amber-400",
   key_up: "bg-amber-600",
@@ -29,12 +29,12 @@ export default function RunTimeline({ events }: { events: InputEvent[] }) {
   const durationMs = events.length ? Math.max(...events.map((e) => e.t)) : 0;
 
   if (events.length === 0) {
-    return <p className="text-sm text-slate-400">No events recorded.</p>;
+    return <p className="text-sm text-muted-foreground">No events recorded.</p>;
   }
 
   return (
     <div className="space-y-4">
-      <div className="relative h-10 w-full rounded-md bg-panel ring-1 ring-border">
+      <div className="relative h-10 w-full rounded-md border border-border bg-card">
         {events.map((event, i) => (
           <div
             key={i}
@@ -53,11 +53,11 @@ export default function RunTimeline({ events }: { events: InputEvent[] }) {
             key={i}
             className="flex items-center justify-between gap-4 rounded px-2 py-1 odd:bg-white/[0.02]"
           >
-            <span className="flex items-center gap-2 text-slate-300">
+            <span className="flex items-center gap-2 text-foreground">
               <span className={`h-2 w-2 rounded-full ${TYPE_COLOR[event.type]}`} />
               {describe(event)}
             </span>
-            <span className="shrink-0 font-mono text-xs text-slate-500">
+            <span className="shrink-0 font-mono text-xs text-muted-foreground">
               {event.t.toFixed(1)}ms
             </span>
           </li>

@@ -96,13 +96,13 @@ export default function DashboardPage() {
   }
 
   return (
-    <main className="mx-auto max-w-6xl px-6 py-10">
+    <main className="mx-auto max-w-6xl px-6 pb-10 pt-24">
       <header className="mb-8 flex items-center justify-between">
         <div>
-          <h1 className="text-2xl font-semibold text-slate-100">
+          <h1 className="font-display text-2xl font-bold tracking-tight text-foreground">
             QA Recorder Dashboard
           </h1>
-          <p className="mt-1 text-sm text-slate-400">
+          <p className="mt-1 text-sm text-muted-foreground">
             Deterministic desktop workflow recording & replay for UI testing.
           </p>
         </div>
@@ -110,7 +110,7 @@ export default function DashboardPage() {
       </header>
 
       {toast && (
-        <div className="mb-6 rounded-md bg-panel px-4 py-2 text-sm text-slate-300 ring-1 ring-border">
+        <div className="mb-6 rounded-md border border-border bg-card px-4 py-2 text-sm text-foreground">
           {toast}
         </div>
       )}
@@ -120,13 +120,13 @@ export default function DashboardPage() {
           <RecordPanel onFinished={refresh} />
 
           <div className="mb-3 flex items-center justify-between">
-            <h2 className="text-sm font-semibold uppercase tracking-wide text-slate-400">
+            <h2 className="font-display text-sm font-semibold uppercase tracking-wide text-muted-foreground">
               Recordings
             </h2>
             <select
               value={speed}
               onChange={(e) => setSpeed(Number(e.target.value))}
-              className="rounded-md border border-border bg-panel px-2 py-1 text-xs text-slate-300"
+              className="rounded-md border border-border bg-card px-2 py-1 text-xs text-muted-foreground"
             >
               {SPEED_OPTIONS.map((s) => (
                 <option key={s} value={s}>
@@ -138,7 +138,7 @@ export default function DashboardPage() {
 
           <div className="space-y-3">
             {recordings.length === 0 && (
-              <p className="rounded-md border border-dashed border-border p-4 text-sm text-slate-400">
+              <p className="rounded-md border border-dashed border-border p-4 text-sm text-muted-foreground">
                 No recordings yet. Click <b>Start Recording</b> above, or
                 upload a JSON file.
               </p>
@@ -146,16 +146,16 @@ export default function DashboardPage() {
             {recordings.map((rec) => (
               <div
                 key={rec.file}
-                className="rounded-lg bg-panel p-4 ring-1 ring-border"
+                className="rounded-lg border border-border bg-card p-4"
               >
                 <div className="flex items-start justify-between gap-2">
-                  <p className="font-medium text-slate-200">{rec.name}</p>
+                  <p className="font-medium text-foreground">{rec.name}</p>
                   <div className="flex shrink-0 gap-1">
                     <button
                       onClick={() => rename(rec.file, rec.name)}
                       title="Rename recording"
                       aria-label={`Rename recording ${rec.name}`}
-                      className="rounded-md px-1.5 py-0.5 text-xs text-slate-500 transition hover:bg-white/5 hover:text-slate-300"
+                      className="rounded-md px-1.5 py-0.5 text-xs text-muted-foreground transition hover:bg-white/5 hover:text-foreground"
                     >
                       ✎
                     </button>
@@ -164,20 +164,20 @@ export default function DashboardPage() {
                       disabled={deleting === rec.file}
                       title="Delete recording"
                       aria-label={`Delete recording ${rec.name}`}
-                      className="rounded-md px-1.5 py-0.5 text-xs text-slate-500 transition hover:bg-red-500/10 hover:text-red-400 disabled:opacity-50"
+                      className="rounded-md px-1.5 py-0.5 text-xs text-muted-foreground transition hover:bg-destructive/10 hover:text-destructive disabled:opacity-50"
                     >
                       {deleting === rec.file ? "…" : "✕"}
                     </button>
                   </div>
                 </div>
-                <p className="mt-1 text-xs text-slate-500">
+                <p className="mt-1 text-xs text-muted-foreground">
                   {rec.events_count} events · {(rec.duration_ms / 1000).toFixed(2)}s ·{" "}
                   {rec.platform}
                 </p>
                 <button
                   onClick={() => trigger(rec.file)}
                   disabled={triggering === rec.file}
-                  className="mt-3 w-full rounded-md bg-accent/90 px-3 py-1.5 text-sm font-medium text-slate-900 transition hover:bg-accent disabled:opacity-50"
+                  className="mt-3 w-full rounded-md bg-primary px-3 py-1.5 text-sm font-semibold text-primary-foreground shadow-glow transition hover:brightness-110 active:brightness-95 disabled:opacity-50"
                 >
                   {triggering === rec.file ? "Starting…" : `Run at ${speed}x`}
                 </button>
@@ -187,7 +187,7 @@ export default function DashboardPage() {
         </section>
 
         <section>
-          <h2 className="mb-3 text-sm font-semibold uppercase tracking-wide text-slate-400">
+          <h2 className="mb-3 font-display text-sm font-semibold uppercase tracking-wide text-muted-foreground">
             Test Runs
           </h2>
           <RunList runs={runs} onChanged={refresh} />

@@ -1,8 +1,8 @@
 import type { RunStatus } from "@/lib/types";
 
 const STYLES: Record<RunStatus, string> = {
-  passed: "bg-emerald-500/15 text-emerald-400 ring-emerald-500/30",
-  failed: "bg-red-500/15 text-red-400 ring-red-500/30",
+  passed: "bg-primary/15 text-primary ring-primary/30",
+  failed: "bg-destructive/15 text-destructive ring-destructive/30",
   aborted: "bg-amber-500/15 text-amber-400 ring-amber-500/30",
   running: "bg-sky-500/15 text-sky-400 ring-sky-500/30 animate-pulse",
   paused: "bg-violet-500/15 text-violet-400 ring-violet-500/30",

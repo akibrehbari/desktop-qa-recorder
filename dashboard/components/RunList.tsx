@@ -77,21 +77,21 @@ export default function RunList({
 
   if (runs.length === 0) {
     return (
-      <p className="rounded-md border border-dashed border-border p-6 text-center text-sm text-slate-400">
+      <p className="rounded-md border border-dashed border-border p-6 text-center text-sm text-muted-foreground">
         No test runs yet. Trigger a recording from the left panel to see it here.
       </p>
     );
   }
 
   return (
-    <div className="overflow-hidden rounded-lg ring-1 ring-border">
+    <div className="overflow-hidden rounded-lg border border-border">
       {controlError && (
-        <p className="border-b border-border bg-red-500/10 px-4 py-2 text-xs text-red-300">
+        <p className="border-b border-border bg-destructive/10 px-4 py-2 text-xs text-destructive">
           {controlError}
         </p>
       )}
       <table className="w-full text-left text-sm">
-        <thead className="bg-panel text-xs uppercase tracking-wide text-slate-400">
+        <thead className="bg-card font-display text-xs uppercase tracking-wide text-muted-foreground">
           <tr>
             <th className="px-4 py-3 font-medium">Recording</th>
             <th className="px-4 py-3 font-medium">Status</th>
@@ -107,22 +107,22 @@ export default function RunList({
             <Fragment key={run.id}>
               <tr
                 onClick={() => toggleExpand(run)}
-                className="cursor-pointer border-t border-border bg-surface transition hover:bg-white/[0.02]"
+                className="cursor-pointer border-t border-border bg-background transition hover:bg-white/[0.02]"
               >
-                <td className="px-4 py-3 font-medium text-slate-200">
+                <td className="px-4 py-3 font-medium text-foreground">
                   {run.recording_name}
                 </td>
                 <td className="px-4 py-3">
                   <StatusBadge status={run.status} />
                 </td>
-                <td className="px-4 py-3 text-slate-400">{run.speed}x</td>
-                <td className="px-4 py-3 text-slate-400">
+                <td className="px-4 py-3 text-muted-foreground">{run.speed}x</td>
+                <td className="px-4 py-3 text-muted-foreground">
                   {run.events_played}/{run.events_total}
                 </td>
-                <td className="px-4 py-3 text-slate-400">
+                <td className="px-4 py-3 text-muted-foreground">
                   {formatDuration(run.duration_ms)}
                 </td>
-                <td className="px-4 py-3 text-slate-400">
+                <td className="px-4 py-3 text-muted-foreground">
                   {formatTime(run.started_at)}
                 </td>
                 <td className="px-4 py-3">
@@ -149,7 +149,7 @@ export default function RunList({
                       <button
                         onClick={(e) => control(e, run, "stop")}
                         disabled={controllingId === run.id}
-                        className="rounded-md bg-red-500/15 px-2 py-1 text-xs font-medium text-red-300 ring-1 ring-red-500/30 transition hover:bg-red-500/25 disabled:opacity-50"
+                        className="rounded-md bg-destructive/15 px-2 py-1 text-xs font-medium text-destructive ring-1 ring-destructive/30 transition hover:bg-destructive/25 disabled:opacity-50"
                       >
                         Stop
                       </button>
@@ -158,15 +158,15 @@ export default function RunList({
                 </td>
               </tr>
               {expandedId === run.id && (
-                <tr className="border-t border-border bg-panel/60">
+                <tr className="border-t border-border bg-card/60">
                   <td colSpan={7} className="px-4 py-4">
                     {run.error && (
-                      <p className="mb-3 rounded bg-red-500/10 px-3 py-2 text-xs text-red-300">
+                      <p className="mb-3 rounded bg-destructive/10 px-3 py-2 text-xs text-destructive">
                         {run.error}
                       </p>
                     )}
                     {loadingId === run.id && (
-                      <p className="text-sm text-slate-400">Loading timeline…</p>
+                      <p className="text-sm text-muted-foreground">Loading timeline…</p>
                     )}
                     {events && <RunTimeline events={events} />}
                   </td>

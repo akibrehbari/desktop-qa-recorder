@@ -79,8 +79,8 @@ export default function RecordPanel({ onFinished }: { onFinished: () => void }) 
   const elapsedMs = state ? now - new Date(state.started_at).getTime() : 0;
 
   return (
-    <div className="rounded-lg bg-panel p-4 ring-1 ring-border">
-      <h2 className="mb-3 text-sm font-semibold uppercase tracking-wide text-slate-400">
+    <div className="rounded-lg border border-border bg-card p-4">
+      <h2 className="mb-3 font-display text-sm font-semibold uppercase tracking-wide text-muted-foreground">
         Record a workflow
       </h2>
 
@@ -91,21 +91,21 @@ export default function RecordPanel({ onFinished }: { onFinished: () => void }) 
             value={name}
             onChange={(e) => setName(e.target.value)}
             placeholder="Name this recording (optional)"
-            className="w-full rounded-md border border-border bg-surface px-3 py-2 text-sm text-slate-200 placeholder:text-slate-500"
+            className="w-full rounded-md border border-border bg-background px-3 py-2 text-sm text-foreground placeholder:text-muted-foreground"
           />
           <button
             onClick={handleStart}
             disabled={busy}
-            className="flex w-full items-center justify-center gap-2 rounded-md bg-red-500/90 px-3 py-2 text-sm font-medium text-white transition hover:bg-red-500 disabled:opacity-50"
+            className="flex w-full items-center justify-center gap-2 rounded-md bg-destructive px-3 py-2 text-sm font-medium text-destructive-foreground transition hover:brightness-110 disabled:opacity-50"
           >
-            <span className="h-2.5 w-2.5 rounded-full bg-white" />
+            <span className="h-2.5 w-2.5 rounded-full bg-current" />
             {busy ? "Starting…" : "Start Recording"}
           </button>
-          <p className="text-xs leading-relaxed text-slate-500">
+          <p className="text-xs leading-relaxed text-muted-foreground">
             Click Start, then do the clicks/typing you want captured. Click
             Stop when you&apos;re done — no terminal needed.
             <br />
-            <span className="text-slate-400">
+            <span className="text-muted-foreground">
               First time on a Mac: a system permission popup may appear
               (Accessibility / Input Monitoring). Click <b>Allow</b>, then
               press Start Recording again.
@@ -114,26 +114,26 @@ export default function RecordPanel({ onFinished }: { onFinished: () => void }) 
         </div>
       ) : (
         <div className="space-y-3">
-          <div className="flex items-center justify-between rounded-md bg-red-500/10 px-3 py-2 ring-1 ring-red-500/30">
-            <span className="flex items-center gap-2 text-sm font-medium text-red-300">
-              <span className="h-2.5 w-2.5 animate-pulse rounded-full bg-red-400" />
+          <div className="flex items-center justify-between rounded-md border border-destructive/30 bg-destructive/10 px-3 py-2">
+            <span className="flex items-center gap-2 text-sm font-medium text-destructive">
+              <span className="h-2.5 w-2.5 animate-pulse rounded-full bg-destructive" />
               Recording &quot;{state.name}&quot;
             </span>
-            <span className="font-mono text-sm text-red-300">
+            <span className="font-mono text-sm text-destructive">
               {formatElapsed(elapsedMs)}
             </span>
           </div>
           <button
             onClick={handleStop}
             disabled={busy}
-            className="w-full rounded-md bg-accent/90 px-3 py-2 text-sm font-medium text-slate-900 transition hover:bg-accent disabled:opacity-50"
+            className="w-full rounded-md bg-primary px-3 py-2 text-sm font-semibold text-primary-foreground shadow-glow transition hover:brightness-110 disabled:opacity-50"
           >
             {busy ? "Stopping…" : "Stop Recording"}
           </button>
         </div>
       )}
 
-      {error && <p className="mt-2 text-xs text-red-400">{error}</p>}
+      {error && <p className="mt-2 text-xs text-destructive">{error}</p>}
     </div>
   );
 }

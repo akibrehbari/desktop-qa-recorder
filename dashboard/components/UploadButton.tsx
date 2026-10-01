@@ -37,7 +37,7 @@ export default function UploadButton({ onUploaded }: { onUploaded: () => void })
 
   return (
     <div className="flex flex-col gap-1">
-      <label className="inline-flex cursor-pointer items-center justify-center rounded-md bg-accent/90 px-3 py-1.5 text-sm font-medium text-slate-900 transition hover:bg-accent">
+      <label className="inline-flex cursor-pointer items-center justify-center rounded-md bg-primary px-3 py-1.5 text-sm font-semibold text-primary-foreground shadow-glow transition hover:brightness-110">
         {busy ? "Uploading…" : "Upload recording"}
         <input
           ref={inputRef}
@@ -51,7 +51,7 @@ export default function UploadButton({ onUploaded }: { onUploaded: () => void })
           }}
         />
       </label>
-      {error && <span className="text-xs text-red-400">{error}</span>}
+      {error && <span className="text-xs text-destructive">{error}</span>}
     </div>
   );
 }

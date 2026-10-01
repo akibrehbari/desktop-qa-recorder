@@ -7,8 +7,23 @@
 }
 
 body {
-  background-color: #0b0f14;
-  color: #e6edf3;
+  background-color: oklch(0.16 0.004 250);
+  color: oklch(0.97 0.005 250);
+  font-family: var(--font-sans), ui-sans-serif, system-ui, sans-serif;
+  -webkit-font-smoothing: antialiased;
+}
+
+h1,
+h2,
+h3,
+h4 {
+  font-family: var(--font-display), ui-sans-serif, system-ui, sans-serif;
+  letter-spacing: -0.025em;
+}
+
+::selection {
+  background: oklch(0.6271 0.1699 149.21);
+  color: oklch(0.98 0.005 150);
 }
 
 ::-webkit-scrollbar {
@@ -17,6 +32,6 @@ body {
 }
 
 ::-webkit-scrollbar-thumb {
-  background-color: #1f2836;
+  background-color: oklch(1 0 0 / 12%);
   border-radius: 9999px;
 }
