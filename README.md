@@ -6,7 +6,30 @@ replays them deterministically — useful for regression-testing desktop UIs.
 
 - **`engine/`** — Python core: records/replays input via [`pynput`](https://pynput.readthedocs.io/), serializes to a JSON schema, supports replay speed multipliers and an emergency abort hotkey.
 - **`dashboard/`** — Next.js + React + Tailwind dashboard for browsing recordings, viewing run timelines, and triggering replays via API routes.
+- **`scripts/`** — double-click setup/launch scripts for non-technical use (see Quick Start below).
 - **`.github/workflows/ci.yml`** — CI: runs the Python test suite and the dashboard lint/typecheck/build.
+
+## Quick Start (no terminal needed)
+
+For anyone who just wants to use the app, not develop it:
+
+1. Download this repo (green **Code** button on GitHub → **Download ZIP**, or `git clone`) and unzip it.
+2. Double-click **`scripts/setup.command`** (Mac) or **`scripts/setup.bat`** (Windows). A console window
+   opens, installs everything it needs, then tells you it's done. This is one-time only.
+   - If macOS says the file "cannot be opened because it is from an unidentified developer":
+     right-click (or Control-click) the file → **Open** → **Open** again. Only needed once.
+3. Double-click **`scripts/start.command`** / **`scripts/start.bat`**. It starts the app and opens it
+   in your browser automatically. Keep that console window open while you use the app; closing it
+   stops the app.
+4. The first time you click **Start Recording** or **Run** in the dashboard, your OS may ask to grant
+   the terminal Accessibility / Input Monitoring permission (macOS) — click **Allow**. This only
+   happens once, and it's required because the app controls your real mouse/keyboard.
+
+Everything after that — recording, replaying, pausing, deleting, renaming — is just clicking buttons
+in the dashboard. See [Running the dashboard](#running-the-dashboard) below for what each button does.
+
+Requires Python 3 and Node.js to already be installed on the computer (the setup script will tell you
+if either is missing, with a download link).
 
 ## How it works
 
@@ -99,7 +122,10 @@ by clicking — no terminal required:
   Recording**. Runs `engine/cli.py record` as a background process; Stop
   sends it a graceful shutdown signal and the new recording appears in the
   list automatically.
-- **Delete** a recording with the ✕ button on its card.
+- **Rename** a recording with the ✎ button on its card (updates its display
+  name; the underlying file name is unchanged). **Delete** with the ✕ button
+  — this is a permanent delete, not a move to Trash, so double-check before
+  confirming.
 - **Upload** a recording JSON file exported from elsewhere.
 - **Run** a recording at a chosen speed multiplier — spawns
   `engine/cli.py replay` as a subprocess and tracks its run record.
@@ -118,6 +144,7 @@ by clicking — no terminal required:
 | ----------------------------- | ------ | ------------------------------------------------ |
 | `/api/recordings`             | GET    | List available recordings                        |
 | `/api/recordings/:file`       | DELETE | Delete a recording                                |
+| `/api/recordings/:file`       | PATCH  | Rename a recording (`{ name }`)                   |
 | `/api/upload`                 | POST   | Save an uploaded recording JSON                   |
 | `/api/record/start`           | POST   | Start recording (`{ name }`)                      |
 | `/api/record/stop`            | POST   | Stop the in-progress recording                    |

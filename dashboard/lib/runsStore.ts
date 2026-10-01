@@ -88,6 +88,42 @@ export async function saveRecording(name: string, jsonText: string): Promise<str
   return fileName;
 }
 
+export async function renameRecording(
+  file: string,
+  newName: string
+): Promise<RecordingSummary> {
+  const safeFile = path.basename(file);
+  const fullPath = path.join(RECORDINGS_DIR, safeFile);
+  const trimmed = newName.trim();
+  if (!trimmed) {
+    throw new Error("Name can't be empty");
+  }
+
+  let raw: string;
+  try {
+    raw = await fs.readFile(fullPath, "utf-8");
+  } catch (err) {
+    if ((err as NodeJS.ErrnoException).code === "ENOENT") {
+      throw new Error(`Recording not found: ${safeFile}`);
+    }
+    throw err;
+  }
+
+  const data = JSON.parse(raw);
+  data.name = trimmed;
+  await fs.writeFile(fullPath, JSON.stringify(data, null, 2));
+
+  return {
+    file: safeFile,
+    name: data.name,
+    version: data.version ?? "unknown",
+    platform: data.platform ?? "unknown",
+    created_at: data.created_at ?? "",
+    duration_ms: data.duration_ms ?? 0,
+    events_count: Array.isArray(data.events) ? data.events.length : 0,
+  };
+}
+
 export async function deleteRecording(file: string): Promise<void> {
   const safeName = path.basename(file);
   const fullPath = path.join(RECORDINGS_DIR, safeName);

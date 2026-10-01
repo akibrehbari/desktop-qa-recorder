@@ -54,6 +54,27 @@ export default function DashboardPage() {
     }
   }
 
+  async function rename(file: string, currentName: string) {
+    const newName = window.prompt("Rename recording to:", currentName);
+    if (newName === null) return; // cancelled
+    const trimmed = newName.trim();
+    if (!trimmed || trimmed === currentName) return;
+
+    setToast(null);
+    try {
+      const res = await fetch(`/api/recordings/${encodeURIComponent(file)}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ name: trimmed }),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error ?? "Failed to rename recording");
+      await refresh();
+    } catch (err) {
+      setToast(err instanceof Error ? err.message : "Failed to rename recording");
+    }
+  }
+
   async function remove(file: string, name: string) {
     if (!window.confirm(`Delete recording "${name}"? This can't be undone.`)) {
       return;
@@ -129,15 +150,25 @@ export default function DashboardPage() {
               >
                 <div className="flex items-start justify-between gap-2">
                   <p className="font-medium text-slate-200">{rec.name}</p>
-                  <button
-                    onClick={() => remove(rec.file, rec.name)}
-                    disabled={deleting === rec.file}
-                    title="Delete recording"
-                    aria-label={`Delete recording ${rec.name}`}
-                    className="shrink-0 rounded-md px-1.5 py-0.5 text-xs text-slate-500 transition hover:bg-red-500/10 hover:text-red-400 disabled:opacity-50"
-                  >
-                    {deleting === rec.file ? "…" : "✕"}
-                  </button>
+                  <div className="flex shrink-0 gap-1">
+                    <button
+                      onClick={() => rename(rec.file, rec.name)}
+                      title="Rename recording"
+                      aria-label={`Rename recording ${rec.name}`}
+                      className="rounded-md px-1.5 py-0.5 text-xs text-slate-500 transition hover:bg-white/5 hover:text-slate-300"
+                    >
+                      ✎
+                    </button>
+                    <button
+                      onClick={() => remove(rec.file, rec.name)}
+                      disabled={deleting === rec.file}
+                      title="Delete recording"
+                      aria-label={`Delete recording ${rec.name}`}
+                      className="rounded-md px-1.5 py-0.5 text-xs text-slate-500 transition hover:bg-red-500/10 hover:text-red-400 disabled:opacity-50"
+                    >
+                      {deleting === rec.file ? "…" : "✕"}
+                    </button>
+                  </div>
                 </div>
                 <p className="mt-1 text-xs text-slate-500">
                   {rec.events_count} events · {(rec.duration_ms / 1000).toFixed(2)}s ·{" "}
