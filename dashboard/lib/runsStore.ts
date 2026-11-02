@@ -17,7 +17,10 @@ const RUNS_DIR = path.join(RECORDINGS_DIR, "runs");
 const RECORDING_STATE_FILE = path.join(RECORDINGS_DIR, ".recording-state.json");
 
 function pythonBin(): string {
-  const venvPython = path.join(REPO_ROOT, ".venv", "bin", "python");
+  const venvPython =
+    process.platform === "win32"
+      ? path.join(REPO_ROOT, ".venv", "Scripts", "python.exe")
+      : path.join(REPO_ROOT, ".venv", "bin", "python");
   if (existsSync(venvPython)) return venvPython;
   return process.platform === "win32" ? "python" : "python3";
 }
@@ -254,9 +257,14 @@ export async function controlRun(
     throw new Error("Pause/Resume isn't supported on Windows — use Stop instead");
   }
 
-  const signal =
-    action === "stop" ? "SIGTERM" : action === "pause" ? "SIGUSR1" : "SIGUSR2";
-  process.kill(run.pid, signal);
+  if (action === "stop" && process.platform === "win32") {
+    // Windows has no graceful SIGTERM; the engine polls for this file instead.
+    await fs.writeFile(path.join(RUNS_DIR, `${path.basename(runId)}.json.stop`), "");
+  } else {
+    const signal =
+      action === "stop" ? "SIGTERM" : action === "pause" ? "SIGUSR1" : "SIGUSR2";
+    process.kill(run.pid, signal);
+  }
 
   // Give the replay process a brief moment to write its updated status.
   await new Promise((resolve) => setTimeout(resolve, 300));
@@ -330,7 +338,13 @@ export async function stopRecording(): Promise<{ file: string; name: string }> {
   }
 
   try {
-    process.kill(state.pid, "SIGTERM");
+    if (process.platform === "win32") {
+      // Windows has no graceful SIGTERM (it hard-kills, losing the recording);
+      // the engine polls for this file instead.
+      await fs.writeFile(path.join(RECORDINGS_DIR, `${state.file}.stop`), "");
+    } else {
+      process.kill(state.pid, "SIGTERM");
+    }
   } catch {
     // Process may have already exited on its own (e.g. the F9 stop hotkey).
   }

@@ -135,7 +135,7 @@ by clicking — no terminal required:
   rather than firing every overdue event at once) — handy for taking over
   manually partway through a run and handing control back to the replay
   afterward. Pause/Resume use POSIX signals (`SIGUSR1`/`SIGUSR2`) and are
-  not available on Windows; Stop (`SIGTERM`) works everywhere.
+  not available on Windows. Stop works everywhere (on Windows via a small stop-file the engine watches, since Windows can't deliver a graceful `SIGTERM`).
 - Expand any run row to see its full event timeline.
 
 ### Dashboard API routes

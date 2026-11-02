@@ -40,9 +40,17 @@ def _cmd_record(args: argparse.Namespace) -> int:
     signal.signal(signal.SIGTERM, _handle_external_stop)
     signal.signal(signal.SIGINT, _handle_external_stop)
 
+    # Windows can't deliver a graceful SIGTERM, so a controller (the dashboard)
+    # can also request a stop by creating "<output>.stop".
+    stop_file = f"{args.output}.stop"
+    if os.path.exists(stop_file):
+        os.remove(stop_file)
+
     recorder.start()
-    recorder.wait()
+    recorder.wait(should_stop=lambda: os.path.exists(stop_file))
     recording = recorder.stop()
+    if os.path.exists(stop_file):
+        os.remove(stop_file)
     Path(args.output).parent.mkdir(parents=True, exist_ok=True)
     recording.save(args.output)
     print(
@@ -110,9 +118,15 @@ def _cmd_replay(args: argparse.Namespace) -> int:
 
     stop_reporting = threading.Event()
 
+    stop_file = f"{args.run_output}.stop" if args.run_output else None
+    if stop_file and os.path.exists(stop_file):
+        os.remove(stop_file)
+
     def _report_pause_transitions() -> None:
         last_paused = None
         while not stop_reporting.is_set():
+            if stop_file and os.path.exists(stop_file):
+                player.request_stop()
             paused = player.is_paused()
             if paused != last_paused:
                 _write_status("paused" if paused else "running")
@@ -135,6 +149,8 @@ def _cmd_replay(args: argparse.Namespace) -> int:
     finally:
         stop_reporting.set()
         reporter.join(timeout=1.0)
+        if stop_file and os.path.exists(stop_file):
+            os.remove(stop_file)
 
     run_record = _write_status(status, error=error_message, finished=True)
     print(json.dumps(run_record, indent=2))

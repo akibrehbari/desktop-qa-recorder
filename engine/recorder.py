@@ -141,15 +141,22 @@ class Recorder:
         down listeners or finalize the Recording -- call stop() for that."""
         self._stopped.set()
 
-    def wait(self, poll_interval: float = 0.2) -> None:
+    def wait(
+        self,
+        poll_interval: float = 0.2,
+        should_stop: Optional[Callable[[], bool]] = None,
+    ) -> None:
         """Block until request_stop() has been called.
 
         Polls in short slices (rather than a single indefinite Event.wait())
         so that a signal handler calling request_stop() from the same
-        process is guaranteed to be noticed promptly.
+        process is guaranteed to be noticed promptly. `should_stop` is an
+        optional extra check each slice (e.g. a stop-file watcher for
+        platforms without graceful signals).
         """
         while not self._stopped.wait(poll_interval):
-            pass
+            if should_stop is not None and should_stop():
+                self.request_stop()
 
     def stop(self) -> Recording:
         if self._mouse_listener is not None:
